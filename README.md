@@ -34,6 +34,10 @@ is built exactly this way.
    }
    ```
 
+   To also list packages published by *other* catalogs, add an `includesUrl`
+   here and the document it points at — see
+   [Drawing packages from other catalogs](#drawing-packages-from-other-catalogs).
+
 3. **Add your modules**:
 
    ```bash
@@ -69,6 +73,7 @@ version; clients pick it up on their next catalog refresh.
 ```
 .
 ├── logos-repo.json                       # YOUR catalog metadata — edit this
+├── includes.json                         # optional: other catalogs you draw from
 ├── .gitmodules                           # submodule declarations (starts empty)
 ├── submodules/                           # one git submodule per module (you add these)
 ├── scripts/
@@ -79,6 +84,7 @@ version; clients pick it up on their next catalog refresh.
     ├── release-module.yml.template       # per-module workflow template (don't run; it's a template)
     ├── release-all.yml                   # umbrella; discovers modules from .gitmodules
     ├── rebuild-index.yml                 # rebuilds index.json after each release
+    ├── validate-repo.yml                 # checks logos-repo.json + includes.json
     └── unpublish.yml                     # manually remove a module / version from the catalog
 ```
 
@@ -102,6 +108,10 @@ one place:
 - **`rebuild-index.yml`** — thin passthrough to the action's
   index-rebuilder. Auto-triggered after each release; also runs on a
   6-hourly catch-up schedule.
+- **`validate-repo.yml`** — structural check of `logos-repo.json`, and of
+  `includes.json` when you have one, on every push that touches either.
+  These are the hand-edited files; clients treat a malformed include as a
+  warning, so a typo costs you packages without failing anything.
 - **`unpublish.yml`** — manual (Actions tab). Removes a whole module
   or one specific version: deletes the release(s) + optionally their
   tags, then rebuilds the index. **Run with `dry_run: true` first** —
@@ -203,6 +213,86 @@ latest 1.x of the action. For reproducible releases, pin an exact tag
 (e.g. `@v1.2.3`) instead. A bump to `@v2` signals a breaking change to
 the workflow inputs or the index schema; stay on `@v1` until you've
 read its migration notes.
+
+## Drawing packages from other catalogs
+
+Your catalog does not have to publish everything it lists. It can draw packages
+from other catalogs — a whole catalog, named packages from it, or pinned
+versions of them. The client resolves that when it fetches, so one entry in a
+user's repository list can stand for a curated bundle, an umbrella over several
+team catalogs, or a stable set mixed with something under test.
+
+Two files. `logos-repo.json` gains an `includesUrl`:
+
+```json
+{
+  "schemaVersion": 1,
+  "name": "my-modules",
+  "displayName": "My Modules",
+  "indexUrl":    "https://github.com/<your-owner>/<your-repo>/releases/download/index/index.json",
+  "includesUrl": "https://raw.githubusercontent.com/<your-owner>/<your-repo>/refs/heads/main/includes.json",
+  "trustedSigners": []
+}
+```
+
+and `includes.json` beside it holds the list:
+
+```json
+{
+  "schemaVersion": 1,
+  "includes": [
+    { "repo": "https://raw.githubusercontent.com/logos-co/logos-modules-release/refs/heads/main/logos-repo.json" },
+
+    { "repo": "https://raw.githubusercontent.com/<other-owner>/<other-repo>/refs/heads/main/logos-repo.json",
+      "packages": ["chat_module", "waku_module"] },
+
+    { "repo": "https://raw.githubusercontent.com/<third-owner>/<third-repo>/refs/heads/main/logos-repo.json",
+      "packages": [{ "name": "storage_module", "version": "2.1.0" },
+                   { "name": "blockchain_module", "version": "^0.2.0" }] }
+  ]
+}
+```
+
+Omit `packages` to take the whole catalog; a bare name takes every version of
+that package; an object pins a version range (npm dialect — a bare `"2.1.0"` is
+exact) or a `rootHash`. Where you and an included catalog both publish a
+package, the versions union and **yours** wins a same-version collision.
+
+Serving `includes.json` from your repo's raw view, as above, is the simple
+choice and what this template assumes. It is a plain URL, though, so it can live
+anywhere `lgpd` can `GET` from — the split from the identity card exists
+precisely so the two can move on different cadences.
+
+Three things to know before you use it:
+
+- **Nothing is released here, and nothing is mirrored.** An included package is
+  downloaded from, and verified against, the catalog that built it. If that
+  catalog unpublishes a version, it disappears from yours too. You are
+  publishing a *reference*, and vouching for the catalog behind it.
+- **Neither file is `index.json`.** `rebuild-index.yml` regenerates the index
+  wholesale from your release assets on every publish and every six hours, so a
+  hand-added entry there is destroyed on the next run. Nothing in the release
+  machinery changes for includes — these are hand-edited files.
+- **Older clients don't see it.** A client that predates `includesUrl` ignores
+  the field, so a catalog whose whole content is drawn from elsewhere reads as
+  **empty** to it, with nothing on screen to explain why.
+
+Both files are hand-edited, so check them before you push:
+
+```bash
+# from a clone of logos-modules-release-tool
+./index.py validate-repo /path/to/your/logos-repo.json \
+  --self-url https://raw.githubusercontent.com/<your-owner>/<your-repo>/refs/heads/main/logos-repo.json
+
+./index.py validate-includes /path/to/your/includes.json \
+  --self-url  https://raw.githubusercontent.com/<your-owner>/<your-repo>/refs/heads/main/logos-repo.json \
+  --index-url https://github.com/<your-owner>/<your-repo>/releases/download/index/index.json
+```
+
+The `validate-repo.yml` workflow in this repo runs exactly that on every push
+that touches either file — `includes.json` only when you have added one. Full
+format reference:
+[catalog-format §11](https://github.com/logos-co/logos-modules-release-tool/blob/main/docs/catalog-format.md#11-drawing-from-other-catalogs-the-includes-document).
 
 ## Managing `index.json` without GitHub Actions
 
