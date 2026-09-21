@@ -249,22 +249,28 @@ and `includes.json` beside it holds the list:
     { "repo": "https://raw.githubusercontent.com/<third-owner>/<third-repo>/refs/heads/main/logos-repo.json",
       "packages": [{ "name": "storage_module", "version": "2.1.0" },
                    { "name": "storage_module", "version": "3.0.0-rc.1" },
-                   { "name": "blockchain_module", "version": "^0.2.0" }] }
+                   { "name": "blockchain_module", "version": "^0.2.0" },
+                   { "name": "delivery_module", "rootHash": "ab12…" },
+                   { "name": "accounts_module", "version": "1.4.0", "rootHash": "cd34…" }] }
   ]
 }
 ```
 
 Omit `packages` to take the whole catalog; a bare name takes every version of
 that package; an object pins a version range (npm dialect — a bare `"2.1.0"` is
-exact) or a `rootHash`.
+exact), a `rootHash`, or both.
 
 **One package may be named more than once, and the entries union** — that is how
 the example takes settled `storage_module` 2.1.0 *and* the 3.0.0 release
 candidate, without a range contrived to span both. A range can carry its own
 alternatives too (`"1.0.0 || 2.1.0"`), but `rootHash` has none, so several
-specific builds can only be asked for as several entries. Inside *one* entry the
-fields are an AND: `{ "name": "x", "version": "1.0.0", "rootHash": "…" }` names a
-single build, not either of two things.
+specific builds can only be asked for as several entries.
+
+Inside *one* entry the fields are an AND. `delivery_module` above pins by hash
+alone, and `accounts_module` names version 1.4.0 **and** that hash — the pair the
+format treats as naming one exact build. Both hashes are abbreviated here to fit:
+a `rootHash` is the full 64-character hex value from the origin’s index entry,
+and it is matched exactly, so a prefix selects nothing.
 
 Where you and an included catalog both publish a package, the versions union and
 **yours** wins a same-version collision.
