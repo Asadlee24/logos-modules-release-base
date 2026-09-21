@@ -248,6 +248,7 @@ and `includes.json` beside it holds the list:
 
     { "repo": "https://raw.githubusercontent.com/<third-owner>/<third-repo>/refs/heads/main/logos-repo.json",
       "packages": [{ "name": "storage_module", "version": "2.1.0" },
+                   { "name": "storage_module", "version": "3.0.0-rc.1" },
                    { "name": "blockchain_module", "version": "^0.2.0" }] }
   ]
 }
@@ -255,8 +256,18 @@ and `includes.json` beside it holds the list:
 
 Omit `packages` to take the whole catalog; a bare name takes every version of
 that package; an object pins a version range (npm dialect — a bare `"2.1.0"` is
-exact) or a `rootHash`. Where you and an included catalog both publish a
-package, the versions union and **yours** wins a same-version collision.
+exact) or a `rootHash`.
+
+**One package may be named more than once, and the entries union** — that is how
+the example takes settled `storage_module` 2.1.0 *and* the 3.0.0 release
+candidate, without a range contrived to span both. A range can carry its own
+alternatives too (`"1.0.0 || 2.1.0"`), but `rootHash` has none, so several
+specific builds can only be asked for as several entries. Inside *one* entry the
+fields are an AND: `{ "name": "x", "version": "1.0.0", "rootHash": "…" }` names a
+single build, not either of two things.
+
+Where you and an included catalog both publish a package, the versions union and
+**yours** wins a same-version collision.
 
 Serving `includes.json` from your repo's raw view, as above, is the simple
 choice and what this template assumes. It is a plain URL, though, so it can live
