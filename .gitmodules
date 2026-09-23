@@ -16,3 +16,9 @@
 ; After cloning a fork, materialise the submodule working trees with:
 ;
 ;   git submodule update --init --recursive
+[submodule "submodules/atlasmirror_app"]
+	path = submodules/atlasmirror_app
+	url = https://github.com/Asadlee24/atlasmirror-app
+[submodule "submodules/atlasmirror_sdk"]
+	path = submodules/atlasmirror_sdk
+	url = https://github.com/Asadlee24/atlasmirror-sdk
